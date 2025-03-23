@@ -1,7 +1,7 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
-
 #include <QMainWindow>
+#include "loginprocessor.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -17,7 +17,14 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+signals:
+    void signInButtonClicked(const QString &login, const QString &pass);
+
 private:
     Ui::MainWindow *ui;
+
+    LoginProcessor loginProccessor;
+
+    void bindConnects();
 };
 #endif // MAINWINDOW_H

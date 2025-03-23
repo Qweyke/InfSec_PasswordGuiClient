@@ -1,20 +1,21 @@
 #include "loginprocessor.h"
 
 namespace {
-QString APP_PATH = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-QString FILE_PATH = APP_PATH + "/PasswordGuiClient/db.json";
+QString APP_PATH = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
+                   + "/PasswordGuiClient";
+QString FILE_PATH = APP_PATH + "/db.json";
 
 } // namespace
 
 LoginProcessor::LoginProcessor()
     : dbFile(FILE_PATH)
 {
-    qInfo() << "Data base path";
+    qInfo() << "App working folder path: " << APP_PATH;
 
     QDir appDir(APP_PATH);
     if (!appDir.exists()) {
         if (!appDir.mkdir(".")) {
-            qWarning() << "Mkdir err";
+            qCritical() << "Creating app dir error";
             return;
         }
     }
@@ -22,6 +23,7 @@ LoginProcessor::LoginProcessor()
     if (dbFile.exists())
         readData();
 
+    // If db doesn't exist yet - create it
     else {
         QJsonObject adminUser;
         adminUser["password"] = "";
@@ -38,12 +40,18 @@ void LoginProcessor::dumpData()
 {
     if (dbFile.open(QIODevice::WriteOnly)) {
         //Reformat json db obj to json doc
-        QJsonDocument dbJsonDoc(dbUsers);
+
+        QJsonObject root;
+        root["users"] = dbUsers;
+
+        QJsonDocument dbJsonDoc(root);
         dbFile.write(dbJsonDoc.toJson());
+
         dbFile.close();
+        qInfo() << "Dump data to " << FILE_PATH << " success";
+
     } else {
-        qWarning() << "Open file err";
-        return;
+        qCritical() << "Open db file error";
     }
 }
 
@@ -51,28 +59,26 @@ void LoginProcessor::readData()
 {
     if (dbFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QByteArray dbFileData = dbFile.readAll();
-        qDebug() << "File has been read";
         dbFile.close();
 
         QJsonDocument dbJsonDoc = QJsonDocument::fromJson(dbFileData);
         if (dbJsonDoc.isNull()) {
-            qWarning() << "Parse json err";
-            return;
+            qCritical() << "Db file parsing error";
         }
 
-        qDebug() << "Document parsed";
         QJsonObject dbObject = dbJsonDoc.object();
 
         if (dbObject.contains("users") && dbObject["users"].isObject()) {
-            dbUsers = dbObject;
-            qDebug() << "Users loaded";
+            dbUsers = dbObject["users"].toObject();
         } else {
-            qWarning() << "Unexpected file content";
-            return;
+            qCritical() << "Unexpected db file content";
         }
+
+        dbFile.close();
+        qInfo() << "Load data from " << FILE_PATH << " success";
+
     } else {
-        qWarning() << "Open file err";
-        return;
+        qCritical() << "Open db file error";
     }
 }
 
@@ -82,7 +88,49 @@ void LoginProcessor::registerUser(const QString &login, const QString &pass)
         QJsonObject newUser;
         newUser["password"] = pass;
         newUser["permissions"] = Permission::user;
-    }
+
+        dbUsers[login] = newUser;
+        dumpData();
+        qInfo() << "Register user success";
+    } else
+        qWarning() << "User already exists";
 }
 
-void LoginProcessor::changePass(const QString &oldPass, const QString &newPass) {}
+void LoginProcessor::changePass(const QString &oldPass, const QString &newPass)
+{
+    if (dbUsers.contains(currentUserName)) {
+        QJsonObject updatedUser = dbUsers.value(currentUserName).toObject();
+        updatedUser["password"] = newPass;
+
+        dbUsers[currentUserName] = updatedUser;
+        dumpData();
+    } else
+        qCritical() << "Current user object is missing in db";
+}
+
+void LoginProcessor::signIn(const QString &login, const QString &pass)
+{
+    if (dbUsers.contains(login)) {
+        QJsonObject currentUser = dbUsers.value(login).toObject();
+
+        if (currentUser["password"].toString() == pass) {
+            currentUserName = login;
+            qInfo() << "User" << login << "log in success";
+        }
+
+    } else
+        qWarning() << "No such user" << login << " in db";
+}
+
+void LoginProcessor::setPass(const QString &login, const QString &pass)
+{
+    if (dbUsers.contains(login)) {
+        QJsonObject currentUser = dbUsers.value(login).toObject();
+
+        currentUser["password"] = pass;
+
+        qWarning() << "Password for " << login << " set";
+
+    } else
+        qWarning() << "No such user" << login << " in db";
+}

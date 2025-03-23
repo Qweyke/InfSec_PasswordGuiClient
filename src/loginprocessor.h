@@ -10,18 +10,27 @@
 #include <QStandardPaths>
 #include <QString>
 
-class LoginProcessor
+class LoginProcessor : public QObject
 {
-    enum Permission { admin = 0, user = 1 };
+    Q_OBJECT
+
+    enum Permission { admin = 0, user = 1, banned = 2 };
 
 public:
     LoginProcessor();
+
+public slots:
     void registerUser(const QString &login, const QString &pass);
     void changePass(const QString &oldPass, const QString &newPass);
+    void signIn(const QString &login, const QString &pass);
+    void setPass(const QString &login, const QString &pass);
 
 private:
     QFile dbFile;
     QJsonObject dbUsers;
+
+    QString currentUserName;
+
     void readData();
     void dumpData();
 };
