@@ -9,6 +9,8 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     bindConnects();
+
+    loginProccessor.firstLaunchCheck();
 }
 
 MainWindow::~MainWindow()
@@ -18,8 +20,19 @@ MainWindow::~MainWindow()
 
 void MainWindow::bindConnects()
 {
+    // Sign in button
     connect(ui->signInButton, &QPushButton::clicked, this, [this]() {
-        emit signInButtonClicked(ui->loginLineEdit->text(), ui->passLineEdit->text());
+        if (!ui->loginLineEdit->text().isNull() && !ui->passLineEdit->text().isNull())
+            emit signInButtonClicked(ui->loginLineEdit->text(), ui->passLineEdit->text());
     });
     connect(this, &MainWindow::signInButtonClicked, &loginProccessor, &LoginProcessor::signIn);
+
+    // First launch
+    connect(&loginProccessor, &LoginProcessor::firstLaunch, this, &MainWindow::firstLaunch);
+}
+
+void MainWindow::firstLaunch()
+{
+    ui->signInButton->setDisabled(true);
+    ui->loginLineEdit->setText("admin");
 }

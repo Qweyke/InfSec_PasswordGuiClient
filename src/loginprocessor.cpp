@@ -10,7 +10,7 @@ QString FILE_PATH = APP_PATH + "/db.json";
 LoginProcessor::LoginProcessor()
     : dbFile(FILE_PATH)
 {
-    qInfo() << "App working folder path: " << APP_PATH;
+    qInfo() << "App working folder path:" << APP_PATH;
 
     QDir appDir(APP_PATH);
     if (!appDir.exists()) {
@@ -25,6 +25,7 @@ LoginProcessor::LoginProcessor()
 
     // If db doesn't exist yet - create it
     else {
+        qWarning() << "First launch";
         QJsonObject adminUser;
         adminUser["password"] = "";
         adminUser["permissions"] = Permission::admin;
@@ -33,6 +34,19 @@ LoginProcessor::LoginProcessor()
         dbUsers["admin"] = adminUser;
 
         dumpData();
+        currentUserName = "admin";
+    }
+}
+
+void LoginProcessor::firstLaunchCheck()
+{
+    if (dbUsers.contains("admin")) {
+        QJsonObject currentUser = dbUsers.value("admin").toObject();
+
+        if (currentUser["password"].isNull()) {
+            currentUserName = "admin";
+            emit firstLaunch();
+        }
     }
 }
 
@@ -48,7 +62,7 @@ void LoginProcessor::dumpData()
         dbFile.write(dbJsonDoc.toJson());
 
         dbFile.close();
-        qInfo() << "Dump data to " << FILE_PATH << " success";
+        qInfo() << "Dump data success";
 
     } else {
         qCritical() << "Open db file error";
@@ -75,7 +89,7 @@ void LoginProcessor::readData()
         }
 
         dbFile.close();
-        qInfo() << "Load data from " << FILE_PATH << " success";
+        qInfo() << "Load data success";
 
     } else {
         qCritical() << "Open db file error";
@@ -119,7 +133,7 @@ void LoginProcessor::signIn(const QString &login, const QString &pass)
         }
 
     } else
-        qWarning() << "No such user" << login << " in db";
+        qWarning() << "No such user" << login << "in db";
 }
 
 void LoginProcessor::setPass(const QString &login, const QString &pass)
@@ -129,8 +143,8 @@ void LoginProcessor::setPass(const QString &login, const QString &pass)
 
         currentUser["password"] = pass;
 
-        qWarning() << "Password for " << login << " set";
+        qInfo() << "Password for" << login << "set success";
 
     } else
-        qWarning() << "No such user" << login << " in db";
+        qWarning() << "No such user" << login << "in db";
 }

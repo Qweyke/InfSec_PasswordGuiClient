@@ -16,8 +16,12 @@ class LoginProcessor : public QObject
 
     enum Permission { admin = 0, user = 1, banned = 2 };
 
+signals:
+    void firstLaunch();
+
 public:
     LoginProcessor();
+    void firstLaunchCheck();
 
 public slots:
     void registerUser(const QString &login, const QString &pass);

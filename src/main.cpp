@@ -34,7 +34,7 @@ void logHandlerFunc(QtMsgType type, const QMessageLogContext &context, const QSt
     }
 
     QString timeStamp = QDateTime::currentDateTime().toString("HH:mm:ss");
-    QString outMsg = QString("[%1]-%2: %3").arg(timeStamp, msgType, msg);
+    QString outMsg = QString("[%1] - [%2]: %3").arg(timeStamp, msgType, msg);
 
     fprintf(stderr, "%s%s\033[0m\n", color, outMsg.toUtf8().constData());
 }

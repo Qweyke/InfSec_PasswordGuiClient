@@ -26,5 +26,8 @@ private:
     LoginProcessor loginProccessor;
 
     void bindConnects();
+
+public slots:
+    void firstLaunch();
 };
 #endif // MAINWINDOW_H
