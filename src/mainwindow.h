@@ -27,7 +27,11 @@ private:
 
     void bindConnects();
 
+private slots:
+    void onSwitchToLog();
+    void onSwitchToReg();
+
 public slots:
-    void firstLaunch();
+    void firstLaunch(bool isFirtLaunch);
 };
 #endif // MAINWINDOW_H

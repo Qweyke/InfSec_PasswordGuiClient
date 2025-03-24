@@ -17,7 +17,7 @@ class LoginProcessor : public QObject
     enum Permission { admin = 0, user = 1, banned = 2 };
 
 signals:
-    void firstLaunch();
+    void firstLaunch(bool isFirtLaunch);
 
 public:
     LoginProcessor();

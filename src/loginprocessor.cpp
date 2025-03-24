@@ -45,8 +45,9 @@ void LoginProcessor::firstLaunchCheck()
 
         if (currentUser["password"].isNull()) {
             currentUserName = "admin";
-            emit firstLaunch();
-        }
+            emit firstLaunch(true);
+        } else
+            emit firstLaunch(false);
     }
 }
 
