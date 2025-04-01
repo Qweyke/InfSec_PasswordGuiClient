@@ -21,16 +21,24 @@ void MainWindow::bindConnects()
 {
     // Sign in button
     connect(ui->logButton, &QPushButton::clicked, this, [this]() {
-        if (!ui->logNameLineEdit->text().isNull() && !ui->logPassLineEdit->text().isNull())
-            emit signInButtonClicked(ui->logNameLineEdit->text(), ui->logPassLineEdit->text());
+        if (!ui->loginLineEdit->text().isEmpty() && !ui->passLineEdit->text().isEmpty())
+            emit logButtonClicked(ui->loginLineEdit->text(), ui->passLineEdit->text());
     });
-    connect(this, &MainWindow::signInButtonClicked, &loginProccessor, &LoginProcessor::signIn);
+    connect(this, &MainWindow::logButtonClicked, &loginProccessor, &LoginProcessor::signIn);
+
+    connect(ui->regButton, &QPushButton::clicked, this, [this]() {
+        if (!ui->loginLineEdit->text().isEmpty() && !ui->passLineEdit->text().isEmpty())
+            emit regButtonClicked(ui->loginLineEdit->text(), ui->passLineEdit->text());
+    });
+    connect(this, &MainWindow::regButtonClicked, &loginProccessor, &LoginProcessor::registerUser);
 
     // First launch
     connect(&loginProccessor, &LoginProcessor::firstLaunch, this, &MainWindow::firstLaunch);
 
     connect(ui->logSwitchButton, &QPushButton::clicked, this, &MainWindow::onSwitchToLog);
     connect(ui->regSwitchButton, &QPushButton::clicked, this, &MainWindow::onSwitchToReg);
+
+    connect(&loginProccessor, &LoginProcessor::onRegisterEnd, this, &MainWindow::onRegEnd);
 }
 
 void MainWindow::onSwitchToLog()
@@ -54,11 +62,32 @@ void MainWindow::onSwitchToReg()
     ui->logSwitchButton->setStyleSheet("color: grey; ");
 }
 
+void MainWindow::onRegEnd(bool isSuccessReg)
+{
+    if (isSuccessReg) {
+        // if first launch
+        ui->logSwitchButton->setDisabled(false);
+
+        ui->loginLabel->setText("");
+        ui->passLabel->setText("");
+        ui->infoLabel->setText("Register successful");
+
+    } else {
+        ui->passLabel->setText("");
+        ui->infoLabel->setText("Register failed");
+    }
+}
+
 void MainWindow::firstLaunch(bool isFirtLaunch)
 {
     if (isFirtLaunch) {
+        qWarning() << "Admin password isn't set yet";
         onSwitchToReg();
-        ui->logNameLineEdit->setText("admin");
+        ui->loginLineEdit->setText("admin");
+        ui->infoLabel->setText("First launch. Set password for admin");
+        // lock log in
+        ui->logSwitchButton->setDisabled(true);
+
     } else {
         onSwitchToLog();
     }

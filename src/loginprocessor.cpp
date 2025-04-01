@@ -1,18 +1,30 @@
 #include "loginprocessor.h"
 
 namespace {
-QString APP_PATH = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
-                   + "/PasswordGuiClient";
-QString FILE_PATH = APP_PATH + "/db.json";
+inline QString appPathConst()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    // + "/PasswordGuiClient";
+}
+
+inline QString filePathConst()
+{
+    return appPathConst() + "/db.json";
+}
+
+inline QString adminConst()
+{
+    return "admin";
+}
 
 } // namespace
 
 LoginProcessor::LoginProcessor()
-    : dbFile(FILE_PATH)
+    : dbFile(filePathConst())
 {
-    qInfo() << "App working folder path:" << APP_PATH;
+    qInfo() << "App working folder path:" << appPathConst();
 
-    QDir appDir(APP_PATH);
+    QDir appDir(appPathConst());
     if (!appDir.exists()) {
         if (!appDir.mkdir(".")) {
             qCritical() << "Creating app dir error";
@@ -25,26 +37,26 @@ LoginProcessor::LoginProcessor()
 
     // If db doesn't exist yet - create it
     else {
-        qWarning() << "First launch";
+        qDebug() << "Data base first launch";
         QJsonObject adminUser;
         adminUser["password"] = "";
         adminUser["permissions"] = Permission::admin;
 
         // Adding admin to array of users
-        dbUsers["admin"] = adminUser;
+        dbUsers[adminConst()] = adminUser;
 
         dumpData();
-        currentUserName = "admin";
+        currentUserName = adminConst();
     }
 }
 
 void LoginProcessor::firstLaunchCheck()
 {
-    if (dbUsers.contains("admin")) {
-        QJsonObject currentUser = dbUsers.value("admin").toObject();
+    if (dbUsers.contains(adminConst())) {
+        QJsonObject currentUser = dbUsers.value(adminConst()).toObject();
 
-        if (currentUser["password"].isNull()) {
-            currentUserName = "admin";
+        if (!currentUser.contains("password") || currentUser["password"].toString().isEmpty()) {
+            currentUserName = adminConst();
             emit firstLaunch(true);
         } else
             emit firstLaunch(false);
@@ -63,7 +75,7 @@ void LoginProcessor::dumpData()
         dbFile.write(dbJsonDoc.toJson());
 
         dbFile.close();
-        qInfo() << "Dump data success";
+        qDebug() << "Dump data success";
 
     } else {
         qCritical() << "Open db file error";
@@ -90,7 +102,7 @@ void LoginProcessor::readData()
         }
 
         dbFile.close();
-        qInfo() << "Load data success";
+        qDebug() << "Load data success";
 
     } else {
         qCritical() << "Open db file error";
@@ -99,7 +111,22 @@ void LoginProcessor::readData()
 
 void LoginProcessor::registerUser(const QString &login, const QString &pass)
 {
-    if (!dbUsers.contains(login)) {
+    if (login.isEmpty() || login.isNull()) {
+        emit onRegisterEnd(false);
+        return;
+    }
+
+    if (dbUsers.contains(login)) {
+        qWarning() << "User already exists";
+        emit onRegisterEnd(false);
+        return;
+    }
+
+    if (login == adminConst()) {
+        changePass("", pass);
+        qInfo() << "Set password for admin success";
+
+    } else {
         QJsonObject newUser;
         newUser["password"] = pass;
         newUser["permissions"] = Permission::user;
@@ -107,20 +134,33 @@ void LoginProcessor::registerUser(const QString &login, const QString &pass)
         dbUsers[login] = newUser;
         dumpData();
         qInfo() << "Register user success";
-    } else
-        qWarning() << "User already exists";
+    }
+
+    emit onRegisterEnd(true);
 }
 
-void LoginProcessor::changePass(const QString &oldPass, const QString &newPass)
+bool LoginProcessor::changePass(const QString &oldPass, const QString &newPass)
 {
     if (dbUsers.contains(currentUserName)) {
-        QJsonObject updatedUser = dbUsers.value(currentUserName).toObject();
-        updatedUser["password"] = newPass;
+        QJsonObject userToHandle = dbUsers.value(currentUserName).toObject();
 
-        dbUsers[currentUserName] = updatedUser;
-        dumpData();
+        if (oldPass == userToHandle.value("password").toString()
+            || currentUserName == adminConst()) {
+            QJsonObject updatedUser = dbUsers.value(currentUserName).toObject();
+            updatedUser["password"] = newPass;
+
+            dbUsers[currentUserName] = updatedUser;
+            dumpData();
+
+            if (currentUserName != adminConst())
+                qInfo() << "Change password success";
+            return true;
+        } else
+            qWarning() << "Wrong password, aborting password change";
     } else
         qCritical() << "Current user object is missing in db";
+
+    return false;
 }
 
 void LoginProcessor::signIn(const QString &login, const QString &pass)

@@ -18,6 +18,7 @@ class LoginProcessor : public QObject
 
 signals:
     void firstLaunch(bool isFirtLaunch);
+    void onRegisterEnd(bool isSuccessReg);
 
 public:
     LoginProcessor();
@@ -25,7 +26,7 @@ public:
 
 public slots:
     void registerUser(const QString &login, const QString &pass);
-    void changePass(const QString &oldPass, const QString &newPass);
+    bool changePass(const QString &oldPass, const QString &newPass);
     void signIn(const QString &login, const QString &pass);
     void setPass(const QString &login, const QString &pass);
 

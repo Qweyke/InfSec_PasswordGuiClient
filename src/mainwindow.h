@@ -18,7 +18,8 @@ public:
     ~MainWindow();
 
 signals:
-    void signInButtonClicked(const QString &login, const QString &pass);
+    void logButtonClicked(const QString &login, const QString &pass);
+    void regButtonClicked(const QString &login, const QString &pass);
 
 private:
     Ui::MainWindow *ui;
@@ -30,6 +31,8 @@ private:
 private slots:
     void onSwitchToLog();
     void onSwitchToReg();
+
+    void onRegEnd(bool isSuccessReg);
 
 public slots:
     void firstLaunch(bool isFirtLaunch);
