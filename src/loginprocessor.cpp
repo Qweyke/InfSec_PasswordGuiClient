@@ -21,6 +21,7 @@ inline QString adminConst()
 
 LoginProcessor::LoginProcessor()
     : dbFile(filePathConst())
+    , usersListModel(new QStandardItemModel(this))
 {
     qInfo() << "App working folder path:" << appPathConst();
 
@@ -40,7 +41,7 @@ LoginProcessor::LoginProcessor()
         qDebug() << "Data base first launch";
         QJsonObject adminUser;
         adminUser["password"] = "";
-        adminUser["permissions"] = Permission::admin;
+        adminUser["permission"] = convertPermissionToString(Permission::admin);
 
         // Adding admin to array of users
         dbUsers[adminConst()] = adminUser;
@@ -48,6 +49,10 @@ LoginProcessor::LoginProcessor()
         dumpData();
         currentUserName = adminConst();
     }
+
+    // Setup users list model
+    usersListModel->setHorizontalHeaderLabels({"Username"});
+    refreshUsersListModel();
 }
 
 void LoginProcessor::firstLaunchCheck()
@@ -109,34 +114,75 @@ void LoginProcessor::readData()
     }
 }
 
-void LoginProcessor::registerUser(const QString &login, const QString &pass)
+void LoginProcessor::refreshUsersListModel()
 {
+    usersListModel->clear();
+
+    for (QJsonObject::Iterator userObjIterator = dbUsers.begin(); userObjIterator != dbUsers.end();
+         ++userObjIterator) {
+        QString userName = userObjIterator.key();
+        QStandardItem *userItem = new QStandardItem(userName);
+
+        usersListModel->appendRow(userItem);
+    }
+}
+
+QStandardItemModel *LoginProcessor::getUsersListModel()
+{
+    return usersListModel;
+}
+
+QString LoginProcessor::convertPermissionToString(Permission userPermission)
+{
+    switch (userPermission) {
+    case Permission::admin:
+        return "adm";
+    case Permission::user:
+        return "usr";
+    case Permission::banned:
+    default:
+        return "ban";
+    }
+}
+
+LoginProcessor::Permission LoginProcessor::convertStringToPermission(QString userPermission)
+{
+    if (userPermission == "adm")
+        return Permission::admin;
+    else if (userPermission == "usr")
+        return Permission::user;
+    else
+        return Permission::banned;
+}
+
+void LoginProcessor::regUser(const QString &login, const QString &pass)
+{
+    // If no login - return
     if (login.isEmpty() || login.isNull()) {
-        emit onRegisterEnd(false);
-        return;
-    }
+        emit onRegEnd(false);
 
-    if (dbUsers.contains(login)) {
-        qWarning() << "User already exists";
-        emit onRegisterEnd(false);
-        return;
-    }
-
-    if (login == adminConst()) {
-        changePass("", pass);
-        qInfo() << "Set password for admin success";
+    } else if (dbUsers.contains(login)) {
+        // If user is ADMIN - emit true
+        if (login == adminConst()) {
+            changePass("", pass);
+            qInfo() << "Set password for" << login << "success";
+            emit onRegEnd(true);
+            return;
+        }
+        qWarning() << "User" << login << "already exists";
+        emit onRegEnd(false);
 
     } else {
         QJsonObject newUser;
         newUser["password"] = pass;
-        newUser["permissions"] = Permission::user;
+        newUser["permission"] = convertPermissionToString(Permission::user);
 
         dbUsers[login] = newUser;
         dumpData();
-        qInfo() << "Register user success";
-    }
+        qInfo() << "Register" << login << "user success";
 
-    emit onRegisterEnd(true);
+        emit onRegEnd(true);
+    }
 }
 
 bool LoginProcessor::changePass(const QString &oldPass, const QString &newPass)
@@ -163,18 +209,29 @@ bool LoginProcessor::changePass(const QString &oldPass, const QString &newPass)
     return false;
 }
 
-void LoginProcessor::signIn(const QString &login, const QString &pass)
+void LoginProcessor::logIn(const QString &login, const QString &pass)
 {
     if (dbUsers.contains(login)) {
         QJsonObject currentUser = dbUsers.value(login).toObject();
 
         if (currentUser["password"].toString() == pass) {
+            Permission permission = convertStringToPermission(
+                currentUser.value("permission").toString());
+
             currentUserName = login;
+
             qInfo() << "User" << login << "log in success";
+            emit onLogIn(true, permission);
+
+        } else {
+            qInfo() << "User" << login << "password is wrong";
+            emit onLogIn(false, Permission::banned);
         }
 
-    } else
+    } else {
         qWarning() << "No such user" << login << "in db";
+        emit onLogIn(false, Permission::banned);
+    }
 }
 
 void LoginProcessor::setPass(const QString &login, const QString &pass)

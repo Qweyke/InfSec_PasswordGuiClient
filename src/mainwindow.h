@@ -29,10 +29,11 @@ private:
     void bindConnects();
 
 private slots:
-    void onSwitchToLog();
-    void onSwitchToReg();
+    void switchWelcomeView(quint16 pageIndex);
 
-    void onRegEnd(bool isSuccessReg);
+    void doOnRegEnd(bool isSuccessReg);
+    void doOnLogInEnd(bool isSuccessLogIn, LoginProcessor::Permission permission);
+    void doChangePassPressed();
 
 public slots:
     void firstLaunch(bool isFirtLaunch);

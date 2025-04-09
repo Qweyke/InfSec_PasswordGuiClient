@@ -2,6 +2,9 @@
 
 #include "./ui_mainwindow.h"
 
+#include <QFormLayout>
+#include <QInputDialog>
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -9,7 +12,15 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     bindConnects();
+
+    // Set welcome page
+    ui->mainStackedWidget->setCurrentIndex(0);
+
+    // Check if app was launched for fisrt time or ADMIN pass isn't set
     loginProccessor.firstLaunchCheck();
+
+    // Set model for view
+    ui->usersListView->setModel(loginProccessor.getUsersListModel());
 }
 
 MainWindow::~MainWindow()
@@ -19,76 +30,118 @@ MainWindow::~MainWindow()
 
 void MainWindow::bindConnects()
 {
-    // Sign in button
-    connect(ui->logButton, &QPushButton::clicked, this, [this]() {
-        if (!ui->loginLineEdit->text().isEmpty() && !ui->passLineEdit->text().isEmpty())
-            emit logButtonClicked(ui->loginLineEdit->text(), ui->passLineEdit->text());
+    // Log button
+    connect(ui->logInButton, &QPushButton::clicked, this, [this]() {
+        if (!ui->userNameLineEdit->text().isEmpty() && !ui->passLineEdit->text().isEmpty())
+            emit logButtonClicked(ui->userNameLineEdit->text(), ui->passLineEdit->text());
     });
-    connect(this, &MainWindow::logButtonClicked, &loginProccessor, &LoginProcessor::signIn);
+    connect(this, &MainWindow::logButtonClicked, &loginProccessor, &LoginProcessor::logIn);
 
+    // Reg button
     connect(ui->regButton, &QPushButton::clicked, this, [this]() {
-        if (!ui->loginLineEdit->text().isEmpty() && !ui->passLineEdit->text().isEmpty())
-            emit regButtonClicked(ui->loginLineEdit->text(), ui->passLineEdit->text());
+        if (!ui->userNameLineEdit->text().isEmpty() && !ui->passLineEdit->text().isEmpty())
+            emit regButtonClicked(ui->userNameLineEdit->text(), ui->passLineEdit->text());
     });
-    connect(this, &MainWindow::regButtonClicked, &loginProccessor, &LoginProcessor::registerUser);
+    connect(this, &MainWindow::regButtonClicked, &loginProccessor, &LoginProcessor::regUser);
 
-    // First launch
+    // Welcome page switch buttons
+    connect(ui->logSwitchButton, &QPushButton::clicked, this, [this]() { switchWelcomeView(0); });
+    connect(ui->regSwitchButton, &QPushButton::clicked, this, [this]() { switchWelcomeView(1); });
+
+    // First launch handle
     connect(&loginProccessor, &LoginProcessor::firstLaunch, this, &MainWindow::firstLaunch);
 
-    connect(ui->logSwitchButton, &QPushButton::clicked, this, &MainWindow::onSwitchToLog);
-    connect(ui->regSwitchButton, &QPushButton::clicked, this, &MainWindow::onSwitchToReg);
+    // Welcome page actions done
+    connect(&loginProccessor, &LoginProcessor::onRegEnd, this, &MainWindow::doOnRegEnd);
+    connect(&loginProccessor, &LoginProcessor::onLogIn, this, &MainWindow::doOnLogInEnd);
 
-    connect(&loginProccessor, &LoginProcessor::onRegisterEnd, this, &MainWindow::onRegEnd);
+    // Change password
+    connect(ui->changePassButton, &QPushButton::clicked, this, &MainWindow::doChangePassPressed);
 }
 
-void MainWindow::onSwitchToLog()
+void MainWindow::switchWelcomeView(quint16 pageIndex)
 {
-    ui->switchFormsWidget->setCurrentIndex(0);
-    ui->logSwitchButton->setDisabled(true);
-    ui->regSwitchButton->setDisabled(false);
+    ui->passLineEdit->clear();
+    ui->regLogStackedWidget->setCurrentIndex(pageIndex);
 
-    ui->logSwitchButton->setStyleSheet("color: blue; border: none; border-bottom: 2px solid blue;");
-    ui->regSwitchButton->setStyleSheet("color: grey; ");
+    if (pageIndex == 0) {
+        ui->logSwitchButton->setStyleSheet("border: none; color: black; ");
+        ui->logSwitchButton->setDisabled(true);
+        ui->regSwitchButton->setDisabled(false);
+        ui->regSwitchButton->setStyleSheet("color: grey;");
+
+    } else if (pageIndex == 1) {
+        ui->regSwitchButton->setStyleSheet("border: none; color: black;");
+        ui->regSwitchButton->setDisabled(true);
+        ui->logSwitchButton->setDisabled(false);
+        ui->logSwitchButton->setStyleSheet("color: grey;");
+    }
 }
 
-void MainWindow::onSwitchToReg()
+void MainWindow::doChangePassPressed()
 {
-    ui->switchFormsWidget->setCurrentIndex(1);
-    ui->regSwitchButton->setDisabled(true);
-    ui->logSwitchButton->setDisabled(false);
+    QDialog changePassDialog;
+    QFormLayout dialogLayout(&changePassDialog);
 
-    ui->regSwitchButton->setStyleSheet(
-        "color: green; border: none; border-bottom: 2px solid green;");
-    ui->logSwitchButton->setStyleSheet("color: grey; ");
+    changePassDialog.setWindowTitle("Change password");
+
+    QLineEdit oldPass, newPass;
+    oldPass.setEchoMode(QLineEdit::Password);
+    oldPass.setEchoMode(QLineEdit::Password);
+
+    dialogLayout.addRow("Old password: ", &oldPass);
+    dialogLayout.addRow("New password: ", &newPass);
+
+    QPushButton confirmButton("Confirm");
+    dialogLayout.addRow(&confirmButton);
+
+    connect(&confirmButton, &QPushButton::clicked, &changePassDialog, &QDialog::accept);
+
+    if (changePassDialog.exec() == QDialog::Accepted) {
+        loginProccessor.changePass(oldPass.text(), newPass.text());
+    }
 }
 
-void MainWindow::onRegEnd(bool isSuccessReg)
+void MainWindow::doOnRegEnd(bool isSuccessReg)
 {
     if (isSuccessReg) {
-        // if first launch
-        ui->logSwitchButton->setDisabled(false);
-
-        ui->loginLabel->setText("");
-        ui->passLabel->setText("");
+        switchWelcomeView(0);
         ui->infoLabel->setText("Register successful");
 
     } else {
-        ui->passLabel->setText("");
         ui->infoLabel->setText("Register failed");
+        ui->userNameLineEdit->clear();
+        ui->passLineEdit->clear();
     }
 }
 
+void MainWindow::doOnLogInEnd(bool isSuccessLogIn, LoginProcessor::Permission permission)
+{
+    ui->passLabel->clear();
+
+    if (!isSuccessLogIn) {
+        ui->infoLabel->setText("Log in failed");
+        return;
+    }
+
+    if (permission != LoginProcessor::Permission::banned) {
+        ui->mainStackedWidget->setCurrentIndex(1);
+        ui->usersListView->setVisible(permission == LoginProcessor::Permission::admin);
+        adjustSize();
+    } else
+        ui->infoLabel->setText("User is banned");
+}
 void MainWindow::firstLaunch(bool isFirtLaunch)
 {
     if (isFirtLaunch) {
+        switchWelcomeView(1);
         qWarning() << "Admin password isn't set yet";
-        onSwitchToReg();
-        ui->loginLineEdit->setText("admin");
+        ui->userNameLineEdit->setText("admin");
+        ui->regPage->layout()->replaceWidget(ui->regLogStackedWidget, ui->changePassButton);
         ui->infoLabel->setText("First launch. Set password for admin");
+
         // lock log in
         ui->logSwitchButton->setDisabled(true);
-
-    } else {
-        onSwitchToLog();
-    }
+    } else
+        switchWelcomeView(0);
 }
