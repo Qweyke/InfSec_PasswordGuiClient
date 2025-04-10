@@ -2,14 +2,15 @@
 
 #include "./ui_mainwindow.h"
 
+#include <QComboBox>
 #include <QDialog>
 #include <QFormLayout>
 #include <QMenu>
 
-MainWindow::MainWindow(LoginProcessor &loginProccessor, QWidget *parent)
+MainWindow::MainWindow(LoginProcessor &loginProcessor, QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , loginProccessor(loginProccessor)
+    , loginProcessor(loginProcessor)
 {
     ui->setupUi(this);
     adjustSize();
@@ -22,7 +23,7 @@ MainWindow::MainWindow(LoginProcessor &loginProccessor, QWidget *parent)
     switchWelcomeView(0);
 
     // Set model for view
-    ui->usersListView->setModel(loginProccessor.getUsersListModel());
+    ui->usersListView->setModel(loginProcessor.getUsersListModel());
     ui->usersListView->setContextMenuPolicy(Qt::CustomContextMenu);
 }
 
@@ -36,13 +37,13 @@ void MainWindow::bindConnects()
     // Log button
     connect(ui->logInButton, &QPushButton::clicked, this, [this]() {
         if (!ui->userNameLineEdit->text().isEmpty() && !ui->passLineEdit->text().isEmpty())
-            loginProccessor.logIn(ui->userNameLineEdit->text(), ui->passLineEdit->text());
+            loginProcessor.logIn(ui->userNameLineEdit->text(), ui->passLineEdit->text());
     });
 
     // Reg button
     connect(ui->regButton, &QPushButton::clicked, this, [this]() {
         if (!ui->userNameLineEdit->text().isEmpty() && !ui->passLineEdit->text().isEmpty())
-            loginProccessor.regUser(ui->userNameLineEdit->text(), ui->passLineEdit->text());
+            loginProcessor.regUser(ui->userNameLineEdit->text(), ui->passLineEdit->text());
     });
 
     // Welcome page switch buttons
@@ -50,15 +51,15 @@ void MainWindow::bindConnects()
     connect(ui->regSwitchButton, &QPushButton::clicked, this, [this]() { switchWelcomeView(1); });
 
     // Welcome page actions done
-    connect(&loginProccessor, &LoginProcessor::onRegEnd, this, &MainWindow::doOnRegEnd);
-    connect(&loginProccessor, &LoginProcessor::onLogIn, this, &MainWindow::doOnLogInEnd);
+    connect(&loginProcessor, &LoginProcessor::onRegEnd, this, &MainWindow::doOnRegEnd);
+    connect(&loginProcessor, &LoginProcessor::onLogIn, this, &MainWindow::doOnLogInEnd);
 
     // Change password
     connect(ui->changePassButton, &QPushButton::clicked, this, &MainWindow::doChangePassPressed);
 
     // Log out
     connect(ui->logOutButton, &QPushButton::clicked, this, [this]() {
-        loginProccessor.logOut();
+        loginProcessor.logOut();
         ui->mainStackedWidget->setCurrentIndex(0);
         // adjustSize();
     });
@@ -74,14 +75,40 @@ void MainWindow::onListViewContextMenu(const QPoint &pos)
     QModelIndex index = ui->usersListView->indexAt(pos);
     QMenu contextMenu(this);
     if (index.isValid()) {
-        QAction *actionEdit = new QAction("Edit", &contextMenu);
+        QAction *actionEdit = new QAction("Change permission", &contextMenu);
         QAction *actionDelete = new QAction("Delete", &contextMenu);
 
         contextMenu.addAction(actionEdit);
         contextMenu.addAction(actionDelete);
 
         connect(actionEdit, &QAction::triggered, this, [this, index]() {
-            qDebug() << "Edit triggered on user:" << index.data().toString();
+            qDebug() << "Change permission triggered on user:" << index.data().toString();
+
+            QDialog permissionDialog;
+            QFormLayout dialogLayout(&permissionDialog);
+
+            permissionDialog.setWindowTitle("Change Permission");
+
+            QComboBox *permissionComboBox = new QComboBox(&permissionDialog);
+
+            permissionComboBox->addItem("User",
+                                        QVariant::fromValue(LoginProcessor::Permission::user));
+            permissionComboBox->addItem("Banned",
+                                        QVariant::fromValue(LoginProcessor::Permission::banned));
+
+            dialogLayout.addRow("Permission: ", permissionComboBox);
+
+            QPushButton confirmButton("Confirm");
+            dialogLayout.addRow(&confirmButton);
+
+            connect(&confirmButton, &QPushButton::clicked, &permissionDialog, &QDialog::accept);
+
+            if (permissionDialog.exec() == QDialog::Accepted) {
+                LoginProcessor::Permission selectedPermission
+                    = permissionComboBox->currentData().value<LoginProcessor::Permission>();
+
+                loginProcessor.changeUserPermission(index.data().toString(), selectedPermission);
+            }
         });
 
         connect(actionDelete, &QAction::triggered, this, [this, index]() {
@@ -112,7 +139,7 @@ void MainWindow::onListViewContextMenu(const QPoint &pos)
             connect(&confirmButton, &QPushButton::clicked, &changePassDialog, &QDialog::accept);
 
             if (changePassDialog.exec() == QDialog::Accepted) {
-                loginProccessor.regUser(newLogin.text(), newPass.text());
+                loginProcessor.regUser(newLogin.text(), newPass.text());
             }
         });
     }
@@ -154,7 +181,7 @@ void MainWindow::doChangePassPressed()
     connect(&confirmButton, &QPushButton::clicked, &changePassDialog, &QDialog::accept);
 
     if (changePassDialog.exec() == QDialog::Accepted) {
-        loginProccessor.changePass(oldPass.text(), newPass.text());
+        loginProcessor.changePass(oldPass.text(), newPass.text());
     }
 }
 
@@ -181,6 +208,5 @@ void MainWindow::doOnLogInEnd(bool isSuccessLogIn, LoginProcessor::Permission pe
         ui->userNameLineEdit->clear();
         ui->mainStackedWidget->setCurrentIndex(1);
         ui->usersListView->setVisible(permission == LoginProcessor::Permission::admin);
-        adjustSize();
     }
 }

@@ -14,7 +14,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    MainWindow(LoginProcessor &loginProccessor, QWidget *parent = nullptr);
+    MainWindow(LoginProcessor &loginProcessor, QWidget *parent = nullptr);
     ~MainWindow();
 
 signals:
@@ -24,7 +24,7 @@ signals:
 private:
     Ui::MainWindow *ui;
 
-    LoginProcessor &loginProccessor;
+    LoginProcessor &loginProcessor;
 
     void bindConnects();
 

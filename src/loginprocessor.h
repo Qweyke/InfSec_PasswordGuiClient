@@ -27,6 +27,7 @@ public slots:
     void logIn(const QString &login, const QString &pass);
     void logOut();
     void setPass(const QString &login, const QString &pass);
+    void changeUserPermission(const QString &login, Permission permission);
 
 signals:
     void onRegEnd(bool isSuccessReg);

@@ -163,6 +163,10 @@ void LoginProcessor::refreshUsersListModel()
     for (QJsonObject::Iterator userObjIterator = dbUsers.begin(); userObjIterator != dbUsers.end();
          ++userObjIterator) {
         QString userName = userObjIterator.key();
+
+        if (userName == adminConst())
+            continue;
+
         QJsonObject userObj = userObjIterator.value().toObject();
         Permission permission = convertStringToPermission(userObj.value("permission").toString());
         QStandardItem *userItem = new QStandardItem(userName);
@@ -171,8 +175,6 @@ void LoginProcessor::refreshUsersListModel()
             userItem->setForeground(QColor(Qt::red));
         else if (permission == Permission::user)
             userItem->setForeground(QColor(Qt::green));
-        else if (permission == Permission::admin)
-            userItem->setForeground(QColor(Qt::yellow));
 
         usersListModel->appendRow(userItem);
     }
@@ -256,11 +258,15 @@ void LoginProcessor::logIn(const QString &login, const QString &pass)
 {
     if (dbUsers.contains(login)) {
         QJsonObject currentUser = dbUsers.value(login).toObject();
+        Permission permission = convertStringToPermission(
+            currentUser.value("permission").toString());
 
-        if (currentUser["password"].toString() == pass) {
-            Permission permission = convertStringToPermission(
-                currentUser.value("permission").toString());
+        if (permission == Permission::banned) {
+            qWarning() << "User" << login << "is banned";
+            emit onLogIn(false, Permission::banned);
+        }
 
+        else if (currentUser["password"].toString() == pass) {
             currentUserName = login;
 
             qInfo() << "User" << login << "log in success";
@@ -293,4 +299,20 @@ void LoginProcessor::setPass(const QString &login, const QString &pass)
 
     } else
         qWarning() << "No such user" << login << "in db";
+}
+
+void LoginProcessor::changeUserPermission(const QString &login, Permission permission)
+{
+    if (dbUsers.contains(login)) {
+        QJsonObject currentUser = dbUsers.value(login).toObject();
+
+        currentUser["permission"] = convertPermissionToString(permission);
+        qInfo() << "Change permission for user" << login << "successful";
+
+        dbUsers[login] = currentUser;
+        dumpData();
+
+    } else {
+        qWarning() << "No such user" << login << "in db";
+    }
 }
