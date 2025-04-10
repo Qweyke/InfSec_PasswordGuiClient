@@ -82,7 +82,6 @@ void MainWindow::onListViewContextMenu(const QPoint &pos)
         contextMenu.addAction(actionDelete);
 
         connect(actionEdit, &QAction::triggered, this, [this, index]() {
-            qDebug() << "Change permission triggered on user:" << index.data().toString();
 
             QDialog permissionDialog;
             QFormLayout dialogLayout(&permissionDialog);
