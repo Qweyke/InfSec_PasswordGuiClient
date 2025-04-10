@@ -65,16 +65,12 @@ void MainWindow::switchWelcomeView(quint16 pageIndex)
     ui->regLogStackedWidget->setCurrentIndex(pageIndex);
 
     if (pageIndex == 0) {
-        ui->logSwitchButton->setStyleSheet("border: none; color: black; ");
         ui->logSwitchButton->setDisabled(true);
         ui->regSwitchButton->setDisabled(false);
-        ui->regSwitchButton->setStyleSheet("color: grey;");
 
     } else if (pageIndex == 1) {
-        ui->regSwitchButton->setStyleSheet("border: none; color: black;");
         ui->regSwitchButton->setDisabled(true);
         ui->logSwitchButton->setDisabled(false);
-        ui->logSwitchButton->setStyleSheet("color: grey;");
     }
 }
 
@@ -135,9 +131,10 @@ void MainWindow::firstLaunch(bool isFirtLaunch)
 {
     if (isFirtLaunch) {
         switchWelcomeView(1);
+        // ui->regLogStackedWidget->layout()->replaceWidget(ui->regButton, ui->changePassButton);
+
         qWarning() << "Admin password isn't set yet";
         ui->userNameLineEdit->setText("admin");
-        ui->regPage->layout()->replaceWidget(ui->regLogStackedWidget, ui->changePassButton);
         ui->infoLabel->setText("First launch. Set password for admin");
 
         // lock log in

@@ -163,12 +163,12 @@ void LoginProcessor::regUser(const QString &login, const QString &pass)
 
     } else if (dbUsers.contains(login)) {
         // If user is ADMIN - emit true
-        if (login == adminConst()) {
-            changePass("", pass);
-            qInfo() << "Set password for" << login << "success";
-            emit onRegEnd(true);
-            return;
-        }
+        // if (login == adminConst()) {
+        //     changePass("", pass);
+        //     qInfo() << "Set password for" << login << "success";
+        //     emit onRegEnd(true);
+        //     return;
+        // }
         qWarning() << "User" << login << "already exists";
         emit onRegEnd(false);
 
@@ -190,16 +190,14 @@ bool LoginProcessor::changePass(const QString &oldPass, const QString &newPass)
     if (dbUsers.contains(currentUserName)) {
         QJsonObject userToHandle = dbUsers.value(currentUserName).toObject();
 
-        if (oldPass == userToHandle.value("password").toString()
-            || currentUserName == adminConst()) {
+        if (oldPass == userToHandle.value("password").toString()) {
             QJsonObject updatedUser = dbUsers.value(currentUserName).toObject();
             updatedUser["password"] = newPass;
 
             dbUsers[currentUserName] = updatedUser;
             dumpData();
+            qInfo() << "Change password success";
 
-            if (currentUserName != adminConst())
-                qInfo() << "Change password success";
             return true;
         } else
             qWarning() << "Wrong password, aborting password change";
