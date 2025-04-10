@@ -14,7 +14,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
+    MainWindow(LoginProcessor &loginProccessor, QWidget *parent = nullptr);
     ~MainWindow();
 
 signals:
@@ -24,7 +24,7 @@ signals:
 private:
     Ui::MainWindow *ui;
 
-    LoginProcessor loginProccessor;
+    LoginProcessor &loginProccessor;
 
     void bindConnects();
 
@@ -34,8 +34,5 @@ private slots:
     void doOnRegEnd(bool isSuccessReg);
     void doOnLogInEnd(bool isSuccessLogIn, LoginProcessor::Permission permission);
     void doChangePassPressed();
-
-public slots:
-    void firstLaunch(bool isFirtLaunch);
 };
 #endif // MAINWINDOW_H

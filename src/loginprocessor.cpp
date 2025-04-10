@@ -1,4 +1,8 @@
 #include "loginprocessor.h"
+#include <QDialog>
+#include <QFormLayout>
+#include <QLineEdit>
+#include <QPushButton>
 
 namespace {
 inline QString appPathConst()
@@ -55,17 +59,52 @@ LoginProcessor::LoginProcessor()
     refreshUsersListModel();
 }
 
-void LoginProcessor::firstLaunchCheck()
+bool LoginProcessor::firstLaunchCheck()
 {
     if (dbUsers.contains(adminConst())) {
         QJsonObject currentUser = dbUsers.value(adminConst()).toObject();
 
         if (!currentUser.contains("password") || currentUser["password"].toString().isEmpty()) {
             currentUserName = adminConst();
-            emit firstLaunch(true);
-        } else
-            emit firstLaunch(false);
+
+            if (!setPassForAdmin())
+                return false;
+        }
+
+        return true;
     }
+
+    return false;
+}
+
+bool LoginProcessor::setPassForAdmin()
+{
+    qWarning() << "Admin password isn't set yet";
+
+    QDialog changePassDialog;
+    QFormLayout dialogLayout(&changePassDialog);
+
+    changePassDialog.setWindowTitle("Set password for admin");
+
+    QLineEdit newPass;
+    newPass.setEchoMode(QLineEdit::Password);
+
+    dialogLayout.addRow("Password: ", &newPass);
+
+    QPushButton confirmButton("Confirm");
+    dialogLayout.addRow(&confirmButton);
+
+    QPushButton exitButton("Exit");
+    dialogLayout.addRow(&exitButton);
+
+    connect(&confirmButton, &QPushButton::clicked, &changePassDialog, &QDialog::accept);
+    connect(&exitButton, &QPushButton::clicked, &changePassDialog, &QDialog::reject);
+
+    if (changePassDialog.exec() == QDialog::Accepted) {
+        changePass("", newPass.text());
+        return true;
+    } else
+        return false;
 }
 
 void LoginProcessor::dumpData()
@@ -162,13 +201,6 @@ void LoginProcessor::regUser(const QString &login, const QString &pass)
         emit onRegEnd(false);
 
     } else if (dbUsers.contains(login)) {
-        // If user is ADMIN - emit true
-        // if (login == adminConst()) {
-        //     changePass("", pass);
-        //     qInfo() << "Set password for" << login << "success";
-        //     emit onRegEnd(true);
-        //     return;
-        // }
         qWarning() << "User" << login << "already exists";
         emit onRegEnd(false);
 
@@ -190,7 +222,8 @@ bool LoginProcessor::changePass(const QString &oldPass, const QString &newPass)
     if (dbUsers.contains(currentUserName)) {
         QJsonObject userToHandle = dbUsers.value(currentUserName).toObject();
 
-        if (oldPass == userToHandle.value("password").toString()) {
+        if (oldPass == userToHandle.value("password").toString()
+            || currentUserName == adminConst()) {
             QJsonObject updatedUser = dbUsers.value(currentUserName).toObject();
             updatedUser["password"] = newPass;
 
@@ -222,7 +255,7 @@ void LoginProcessor::logIn(const QString &login, const QString &pass)
             emit onLogIn(true, permission);
 
         } else {
-            qInfo() << "User" << login << "password is wrong";
+            qWarning() << "User" << login << "password is wrong";
             emit onLogIn(false, Permission::banned);
         }
 

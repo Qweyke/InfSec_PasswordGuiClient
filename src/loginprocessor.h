@@ -18,7 +18,7 @@ class LoginProcessor : public QObject
 public:
     enum Permission { admin = 0, user = 1, banned = 2 };
     LoginProcessor();
-    void firstLaunchCheck();
+    bool firstLaunchCheck();
     QStandardItemModel *getUsersListModel();
 
 public slots:
@@ -28,7 +28,6 @@ public slots:
     void setPass(const QString &login, const QString &pass);
 
 signals:
-    void firstLaunch(bool isFirtLaunch);
     void onRegEnd(bool isSuccessReg);
     void onLogIn(bool isSuccessLogIn, Permission userPermission);
 
@@ -41,6 +40,8 @@ private:
 
     void readData();
     void dumpData();
+
+    bool setPassForAdmin();
 
     QString convertPermissionToString(Permission userPermission);
     Permission convertStringToPermission(QString userPermission);

@@ -43,7 +43,16 @@ int main(int argc, char *argv[])
 {
     qInstallMessageHandler(logHandlerFunc);
     QApplication app(argc, argv);
-    MainWindow window;
+    LoginProcessor proccessor;
+
+    if (!proccessor.firstLaunchCheck()) {
+        qCritical() << "Setting password for admin aborted";
+
+        exit(0);
+    }
+
+    MainWindow window(proccessor);
+
     window.show();
 
     return app.exec();
