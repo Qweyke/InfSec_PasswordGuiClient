@@ -2,10 +2,13 @@
 
 #include "./ui_mainwindow.h"
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDialog>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <QMenu>
+#include <QMessageBox>
 
 MainWindow::MainWindow(LoginProcessor &loginProcessor, QWidget *parent)
     : QMainWindow(parent)
@@ -76,10 +79,10 @@ void MainWindow::onListViewContextMenu(const QPoint &pos)
     QMenu contextMenu(this);
     if (index.isValid()) {
         QAction *actionEdit = new QAction("Change permission", &contextMenu);
-        QAction *actionDelete = new QAction("Delete", &contextMenu);
+        QAction* actionFordbid = new QAction("Forbid password", &contextMenu);
 
         contextMenu.addAction(actionEdit);
-        contextMenu.addAction(actionDelete);
+        contextMenu.addAction(actionFordbid);
 
         connect(actionEdit, &QAction::triggered, this, [this, index]() {
 
@@ -110,9 +113,68 @@ void MainWindow::onListViewContextMenu(const QPoint &pos)
             }
         });
 
-        connect(actionDelete, &QAction::triggered, this, [this, index]() {
-            qDebug() << "Delete triggered on user:" << index.data().toString();
-        });
+        connect(
+            actionFordbid,
+            &QAction::triggered,
+            this,
+            [this, index]() {
+                QDialog forbidPasswordsDialog;
+                forbidPasswordsDialog.setWindowTitle("Set required character groups");
+
+                QFormLayout* dialogLayout = new QFormLayout(&forbidPasswordsDialog);
+
+                QGroupBox* charGroup = new QGroupBox("Required character groups:");
+                QVBoxLayout* groupLayout = new QVBoxLayout();
+
+                QCheckBox* cbDigits = new QCheckBox("Digits [0–9]");
+                QCheckBox* cbUpperLat = new QCheckBox("Upper Latin");
+                QCheckBox* cbLowerLat = new QCheckBox("Lower Latin");
+                QCheckBox* cbSpecial = new QCheckBox("Special characters (!@#$...)");
+                QCheckBox* cbUpperCyr = new QCheckBox("Upper Cyrillic");
+                QCheckBox* cbLowerCyr = new QCheckBox("Lower Cyrillic");
+
+                QList<QCheckBox*> checks
+                    = {cbDigits, cbUpperLat, cbLowerLat, cbSpecial, cbUpperCyr, cbLowerCyr};
+
+                for (auto* cb : checks)
+                    groupLayout->addWidget(cb);
+
+                charGroup->setLayout(groupLayout);
+                dialogLayout->addRow(charGroup);
+
+                QPushButton* confirmButton = new QPushButton("Confirm");
+                dialogLayout->addRow(confirmButton);
+
+                connect(confirmButton, &QPushButton::clicked, this, [&]() {
+                    QVector<int> requiredGroups;
+                    for (int i = 0; i < checks.size(); ++i) {
+                        if (checks[i]->isChecked())
+                            requiredGroups.append(i);
+                    }
+
+                    if (requiredGroups.isEmpty()) {
+                        QMessageBox::warning(&forbidPasswordsDialog,
+                                             "Error",
+                                             "Choose at least one option.");
+                        return;
+                    }
+
+                    forbidPasswordsDialog.accept();
+                });
+
+                if (forbidPasswordsDialog.exec() == QDialog::Accepted) {
+                    QString username = index.data().toString();
+
+                    QVector<int> requiredGroups;
+                    for (int i = 0; i < checks.size(); ++i) {
+                        if (checks[i]->isChecked())
+                            requiredGroups.append(i);
+                    }
+
+                    loginProcessor.setPasswordRequirements(username, requiredGroups);
+                }
+            },
+            Qt::QueuedConnection);
 
     } else {
         QAction *actionAddUser = new QAction("Add New User", &contextMenu);

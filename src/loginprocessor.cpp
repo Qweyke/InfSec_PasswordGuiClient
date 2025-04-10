@@ -235,6 +235,12 @@ bool LoginProcessor::changePass(const QString &oldPass, const QString &newPass)
 {
     if (dbUsers.contains(currentUserName)) {
         QJsonObject userToHandle = dbUsers.value(currentUserName).toObject();
+        QJsonArray forbiddenPasswords = userToHandle.value("forbidden passwords").toArray();
+
+        if (!validatePassword(currentUserName, newPass)) {
+            qWarning() << "Password isn't strong enough, aborting password change";
+            return false;
+        }
 
         if (oldPass == userToHandle.value("password").toString()
             || currentUserName == adminConst()) {
@@ -246,10 +252,12 @@ bool LoginProcessor::changePass(const QString &oldPass, const QString &newPass)
             qInfo() << "Change password success";
 
             return true;
-        } else
+        } else {
             qWarning() << "Wrong password, aborting password change";
-    } else
+        }
+    } else {
         qCritical() << "Current user object is missing in db";
+    }
 
     return false;
 }
@@ -288,17 +296,75 @@ void LoginProcessor::logOut()
     currentUserName = "";
 }
 
-void LoginProcessor::setPass(const QString &login, const QString &pass)
+void LoginProcessor::setPasswordRequirements(const QString &username,
+                                             const QVector<int> &requiredGroups)
 {
-    if (dbUsers.contains(login)) {
-        QJsonObject currentUser = dbUsers.value(login).toObject();
+    if (!dbUsers.contains(username)) {
+        qWarning() << "User not found!";
+        return;
+    }
 
-        currentUser["password"] = pass;
+    QJsonObject userToHandle = dbUsers.value(username).toObject();
+    QJsonArray requiredGroupsArray;
 
-        qInfo() << "Password for" << login << "set success";
+    for (int group : requiredGroups) {
+        requiredGroupsArray.append(group);
+    }
 
-    } else
-        qWarning() << "No such user" << login << "in db";
+    userToHandle["requiredGroups"] = requiredGroupsArray;
+    dbUsers[username] = userToHandle;
+    dumpData();
+}
+
+bool LoginProcessor::validatePassword(const QString &username, const QString &newPassword)
+{
+    if (!dbUsers.contains(username)) {
+        qWarning() << "User not found!";
+        return false;
+    }
+
+    QJsonObject userToHandle = dbUsers.value(username).toObject();
+    QJsonArray requiredGroupsArray = userToHandle.value("requiredGroups").toArray();
+
+    auto matchesCategory = [](QChar ch, int groupIndex) -> bool {
+        ushort u = ch.unicode();
+        switch (groupIndex) {
+        case 0: // Digits [0-9]
+            return ch.isDigit();
+        case 1: // Upper Latin Letters [A-Z]
+            return ch.isUpper() && ch.isLetter();
+        case 2: // Lower Latin Letters [a-z]
+            return ch.isLower() && ch.isLetter();
+        case 3: // Special characters (!@#$...)
+            return (u >= 33 && u <= 47) || (u >= 58 && u <= 64) || (u >= 91 && u <= 96)
+                   || (u >= 123 && u <= 126);
+        case 4: // Upper Cyrillic Letters
+            return (u >= 0x0410 && u <= 0x042F) || u == 0x0401;
+        case 5: // Lower Cyrillic Letters
+            return (u >= 0x0430 && u <= 0x044F) || u == 0x0451;
+        default:
+            return false;
+        }
+    };
+
+    for (int i = 0; i < requiredGroupsArray.size(); ++i) {
+        int groupIndex = requiredGroupsArray[i].toInt();
+        bool groupFound = false;
+
+        for (const QChar &ch : newPassword) {
+            if (matchesCategory(ch, groupIndex)) {
+                groupFound = true;
+                break;
+            }
+        }
+
+        if (!groupFound) {
+            qWarning() << "Password must contain a character from the required group:"
+                       << groupIndex;
+            return false;
+        }
+    }
+    return true;
 }
 
 void LoginProcessor::changeUserPermission(const QString &login, Permission permission)

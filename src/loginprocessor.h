@@ -26,8 +26,10 @@ public slots:
     bool changePass(const QString &oldPass, const QString &newPass);
     void logIn(const QString &login, const QString &pass);
     void logOut();
-    void setPass(const QString &login, const QString &pass);
+    // void setPass(const QString &login, const QString &pass);
     void changeUserPermission(const QString &login, Permission permission);
+    void setPasswordRequirements(const QString &username, const QVector<int> &requiredGroups);
+    bool validatePassword(const QString &username, const QString &newPassword);
 
 signals:
     void onRegEnd(bool isSuccessReg);
