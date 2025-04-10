@@ -25,6 +25,7 @@ public slots:
     void regUser(const QString &login, const QString &pass);
     bool changePass(const QString &oldPass, const QString &newPass);
     void logIn(const QString &login, const QString &pass);
+    void logOut();
     void setPass(const QString &login, const QString &pass);
 
 signals:

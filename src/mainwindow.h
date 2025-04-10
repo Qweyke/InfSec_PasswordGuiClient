@@ -31,6 +31,8 @@ private:
 private slots:
     void switchWelcomeView(quint16 pageIndex);
 
+    void onListViewContextMenu(const QPoint &pos);
+
     void doOnRegEnd(bool isSuccessReg);
     void doOnLogInEnd(bool isSuccessLogIn, LoginProcessor::Permission permission);
     void doChangePassPressed();

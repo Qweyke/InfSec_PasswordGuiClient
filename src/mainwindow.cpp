@@ -4,6 +4,7 @@
 
 #include <QDialog>
 #include <QFormLayout>
+#include <QMenu>
 
 MainWindow::MainWindow(LoginProcessor &loginProccessor, QWidget *parent)
     : QMainWindow(parent)
@@ -11,6 +12,7 @@ MainWindow::MainWindow(LoginProcessor &loginProccessor, QWidget *parent)
     , loginProccessor(loginProccessor)
 {
     ui->setupUi(this);
+    adjustSize();
     bindConnects();
 
     // Set welcome page as first
@@ -21,6 +23,7 @@ MainWindow::MainWindow(LoginProcessor &loginProccessor, QWidget *parent)
 
     // Set model for view
     ui->usersListView->setModel(loginProccessor.getUsersListModel());
+    ui->usersListView->setContextMenuPolicy(Qt::CustomContextMenu);
 }
 
 MainWindow::~MainWindow()
@@ -52,6 +55,68 @@ void MainWindow::bindConnects()
 
     // Change password
     connect(ui->changePassButton, &QPushButton::clicked, this, &MainWindow::doChangePassPressed);
+
+    // Log out
+    connect(ui->logOutButton, &QPushButton::clicked, this, [this]() {
+        loginProccessor.logOut();
+        ui->mainStackedWidget->setCurrentIndex(0);
+        // adjustSize();
+    });
+
+    connect(ui->usersListView,
+            &QListView::customContextMenuRequested,
+            this,
+            &MainWindow::onListViewContextMenu);
+}
+
+void MainWindow::onListViewContextMenu(const QPoint &pos)
+{
+    QModelIndex index = ui->usersListView->indexAt(pos);
+    QMenu contextMenu(this);
+    if (index.isValid()) {
+        QAction *actionEdit = new QAction("Edit", &contextMenu);
+        QAction *actionDelete = new QAction("Delete", &contextMenu);
+
+        contextMenu.addAction(actionEdit);
+        contextMenu.addAction(actionDelete);
+
+        connect(actionEdit, &QAction::triggered, this, [this, index]() {
+            qDebug() << "Edit triggered on user:" << index.data().toString();
+        });
+
+        connect(actionDelete, &QAction::triggered, this, [this, index]() {
+            qDebug() << "Delete triggered on user:" << index.data().toString();
+        });
+
+    } else {
+        QAction *actionAddUser = new QAction("Add New User", &contextMenu);
+        contextMenu.addAction(actionAddUser);
+
+        connect(actionAddUser, &QAction::triggered, this, [this]() {
+            qDebug() << "Add New User triggered";
+
+            QDialog changePassDialog;
+            QFormLayout dialogLayout(&changePassDialog);
+
+            changePassDialog.setWindowTitle("Add New User");
+
+            QLineEdit newPass, newLogin;
+            newPass.setEchoMode(QLineEdit::Password);
+
+            dialogLayout.addRow("Username: ", &newLogin);
+            dialogLayout.addRow("Password: ", &newPass);
+
+            QPushButton confirmButton("Confirm");
+            dialogLayout.addRow(&confirmButton);
+
+            connect(&confirmButton, &QPushButton::clicked, &changePassDialog, &QDialog::accept);
+
+            if (changePassDialog.exec() == QDialog::Accepted) {
+                loginProccessor.regUser(newLogin.text(), newPass.text());
+            }
+        });
+    }
+    contextMenu.exec(ui->usersListView->viewport()->mapToGlobal(pos));
 }
 
 void MainWindow::switchWelcomeView(quint16 pageIndex)
@@ -106,13 +171,14 @@ void MainWindow::doOnRegEnd(bool isSuccessReg)
 
 void MainWindow::doOnLogInEnd(bool isSuccessLogIn, LoginProcessor::Permission permission)
 {
-    ui->passLabel->clear();
+    ui->passLineEdit->clear();
 
     if (!isSuccessLogIn) {
         return;
     }
 
     if (permission != LoginProcessor::Permission::banned) {
+        ui->userNameLineEdit->clear();
         ui->mainStackedWidget->setCurrentIndex(1);
         ui->usersListView->setVisible(permission == LoginProcessor::Permission::admin);
         adjustSize();

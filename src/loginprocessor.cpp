@@ -26,6 +26,7 @@ inline QString adminConst()
 LoginProcessor::LoginProcessor()
     : dbFile(filePathConst())
     , usersListModel(new QStandardItemModel(this))
+    , currentUserName("")
 {
     qInfo() << "App working folder path:" << appPathConst();
 
@@ -120,6 +121,7 @@ void LoginProcessor::dumpData()
 
         dbFile.close();
         qDebug() << "Dump data success";
+        refreshUsersListModel();
 
     } else {
         qCritical() << "Open db file error";
@@ -147,6 +149,7 @@ void LoginProcessor::readData()
 
         dbFile.close();
         qDebug() << "Load data success";
+        refreshUsersListModel();
 
     } else {
         qCritical() << "Open db file error";
@@ -160,7 +163,16 @@ void LoginProcessor::refreshUsersListModel()
     for (QJsonObject::Iterator userObjIterator = dbUsers.begin(); userObjIterator != dbUsers.end();
          ++userObjIterator) {
         QString userName = userObjIterator.key();
+        QJsonObject userObj = userObjIterator.value().toObject();
+        Permission permission = convertStringToPermission(userObj.value("permission").toString());
         QStandardItem *userItem = new QStandardItem(userName);
+
+        if (permission == Permission::banned)
+            userItem->setForeground(QColor(Qt::red));
+        else if (permission == Permission::user)
+            userItem->setForeground(QColor(Qt::green));
+        else if (permission == Permission::admin)
+            userItem->setForeground(QColor(Qt::yellow));
 
         usersListModel->appendRow(userItem);
     }
@@ -263,6 +275,11 @@ void LoginProcessor::logIn(const QString &login, const QString &pass)
         qWarning() << "No such user" << login << "in db";
         emit onLogIn(false, Permission::banned);
     }
+}
+
+void LoginProcessor::logOut()
+{
+    currentUserName = "";
 }
 
 void LoginProcessor::setPass(const QString &login, const QString &pass)
