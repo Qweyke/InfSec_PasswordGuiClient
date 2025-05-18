@@ -235,7 +235,6 @@ bool LoginProcessor::changePass(const QString &oldPass, const QString &newPass)
 {
     if (dbUsers.contains(currentUserName)) {
         QJsonObject userToHandle = dbUsers.value(currentUserName).toObject();
-        QJsonArray forbiddenPasswords = userToHandle.value("forbidden passwords").toArray();
 
         if (!validatePassword(currentUserName, newPass)) {
             qWarning() << "Password isn't strong enough, aborting password change";

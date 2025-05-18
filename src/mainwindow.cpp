@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 
 #include "./ui_mainwindow.h"
+#include "passanalyzer.h"
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -67,10 +68,13 @@ void MainWindow::bindConnects()
         // adjustSize();
     });
 
+    // Suggest pass
     connect(ui->usersListView,
             &QListView::customContextMenuRequested,
             this,
             &MainWindow::onListViewContextMenu);
+
+    connect(ui->checkStrengthAction, &QAction::triggered, this, &MainWindow::checkPassStrength);
 }
 
 void MainWindow::onListViewContextMenu(const QPoint &pos)
@@ -269,5 +273,26 @@ void MainWindow::doOnLogInEnd(bool isSuccessLogIn, LoginProcessor::Permission pe
         ui->userNameLineEdit->clear();
         ui->mainStackedWidget->setCurrentIndex(1);
         ui->usersListView->setVisible(permission == LoginProcessor::Permission::admin);
+    }
+}
+
+void MainWindow::checkPassStrength()
+{
+    QDialog checkDialog;
+    checkDialog.setWindowTitle("Check password strength");
+    QFormLayout dialogLayout(&checkDialog);
+
+    QLineEdit pass;
+    QPushButton confirmButton("Check");
+
+    dialogLayout.addRow("Check password: ", &pass);
+    dialogLayout.addRow(&confirmButton);
+
+    connect(&confirmButton, &QPushButton::clicked, &checkDialog, &QDialog::accept);
+
+    if (checkDialog.exec() == QDialog::Accepted) {
+        qDebug() << "Calculating password strength";
+        checkPswdStrength(pass.text());
+        checkPassStrength();
     }
 }

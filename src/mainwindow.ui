@@ -24,7 +24,7 @@
     <item>
      <widget class="QStackedWidget" name="mainStackedWidget">
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="welcomePage">
        <layout class="QVBoxLayout" name="verticalLayout">
@@ -205,6 +205,34 @@
     </item>
    </layout>
   </widget>
+  <widget class="QMenuBar" name="menuBar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>204</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="hackMenu">
+    <property name="title">
+     <string>Hack</string>
+    </property>
+    <addaction name="checkStrengthAction"/>
+    <addaction name="bruteLoginAction"/>
+   </widget>
+   <addaction name="hackMenu"/>
+  </widget>
+  <action name="checkStrengthAction">
+   <property name="text">
+    <string>Check pass strength</string>
+   </property>
+  </action>
+  <action name="bruteLoginAction">
+   <property name="text">
+    <string>Brute for login</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections/>

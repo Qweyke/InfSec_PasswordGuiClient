@@ -27,6 +27,7 @@ private:
     LoginProcessor &loginProcessor;
 
     void bindConnects();
+    void checkPassStrength();
 
 private slots:
     void switchWelcomeView(quint16 pageIndex);
