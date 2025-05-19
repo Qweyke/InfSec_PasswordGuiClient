@@ -343,8 +343,10 @@ void hackPass(std::function<void(QString)> logInFunc,
 
         logInFunc(passAttempt);
 
-        if (!iterateVector())
+        if (!iterateVector()) {
+            qInfo() << "Password hacked: " << passAttempt;
             break;
+        }
     }
 
     qint64 elapsedMs = timer.elapsed();
