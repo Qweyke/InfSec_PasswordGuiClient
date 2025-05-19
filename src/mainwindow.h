@@ -28,6 +28,9 @@ private:
 
     void bindConnects();
     void checkPassStrength();
+    void bruteHackPass();
+
+    bool passwordHacked;
 
 private slots:
     void switchWelcomeView(quint16 pageIndex);

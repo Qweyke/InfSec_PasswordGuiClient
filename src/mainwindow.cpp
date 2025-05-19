@@ -10,11 +10,13 @@
 #include <QGroupBox>
 #include <QMenu>
 #include <QMessageBox>
+#include <QSpinBox>
 
-MainWindow::MainWindow(LoginProcessor &loginProcessor, QWidget *parent)
+MainWindow::MainWindow(LoginProcessor& loginProcessor, QWidget* parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , loginProcessor(loginProcessor)
+    , passwordHacked(false)
 {
     ui->setupUi(this);
     adjustSize();
@@ -33,6 +35,7 @@ MainWindow::MainWindow(LoginProcessor &loginProcessor, QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    passwordHacked = true;
     delete ui;
 }
 
@@ -75,6 +78,7 @@ void MainWindow::bindConnects()
             &MainWindow::onListViewContextMenu);
 
     connect(ui->checkStrengthAction, &QAction::triggered, this, &MainWindow::checkPassStrength);
+    connect(ui->bruteLoginAction, &QAction::triggered, this, &MainWindow::bruteHackPass);
 }
 
 void MainWindow::onListViewContextMenu(const QPoint &pos)
@@ -270,6 +274,7 @@ void MainWindow::doOnLogInEnd(bool isSuccessLogIn, LoginProcessor::Permission pe
     }
 
     if (permission != LoginProcessor::Permission::banned) {
+        passwordHacked = true;
         ui->userNameLineEdit->clear();
         ui->mainStackedWidget->setCurrentIndex(1);
         ui->usersListView->setVisible(permission == LoginProcessor::Permission::admin);
@@ -294,5 +299,75 @@ void MainWindow::checkPassStrength()
         qDebug() << "Calculating password strength";
         checkPswdStrength(pass.text());
         checkPassStrength();
+    }
+}
+
+void MainWindow::bruteHackPass()
+{
+    passwordHacked = false;
+    QDialog checkDialog;
+    checkDialog.setWindowTitle("Hack user's password");
+    QFormLayout dialogLayout(&checkDialog);
+
+    QLineEdit* login = new QLineEdit(&checkDialog);
+    QSpinBox* spinBox = new QSpinBox(&checkDialog);
+    QLabel* label = new QLabel(&checkDialog);
+
+    QPushButton* confirmButton = new QPushButton("Hack", &checkDialog);
+    QPushButton* stopButton = new QPushButton("Stop", &checkDialog);
+
+    QCheckBox* digitsCheck = new QCheckBox("Digits", &checkDialog);
+    QCheckBox* latinUpperCheck = new QCheckBox("Latin upper", &checkDialog);
+    QCheckBox* latinLowerCheck = new QCheckBox("Latin lower", &checkDialog);
+    QCheckBox* cyrillicUpperCheck = new QCheckBox("Cyrillic upper", &checkDialog);
+    QCheckBox* cyrillicLowerCheck = new QCheckBox("Cyrillic lower", &checkDialog);
+    QCheckBox* specialCheck = new QCheckBox("Special symbols", &checkDialog);
+
+    digitsCheck->setChecked(true);
+    spinBox->setRange(1, 8);
+    spinBox->setValue(1);
+
+    label->setText("Alphabet:");
+
+    dialogLayout.addRow("User login to hack: ", login);
+    dialogLayout.addRow("Password length: ", spinBox);
+
+    dialogLayout.addRow(label);
+
+    dialogLayout.addRow(digitsCheck);
+    dialogLayout.addRow(latinUpperCheck);
+    dialogLayout.addRow(latinLowerCheck);
+    dialogLayout.addRow(cyrillicUpperCheck);
+    dialogLayout.addRow(cyrillicLowerCheck);
+    dialogLayout.addRow(specialCheck);
+
+    dialogLayout.addRow(confirmButton);
+    dialogLayout.addRow(stopButton);
+    uint8_t mask = 0;
+    auto startHackFunc = [this, &login, &mask, &spinBox]() {
+        hackPass([this, &login](
+                     const QString password) { loginProcessor.logIn(login->text(), password); },
+                 mask,
+                 &passwordHacked,
+                 spinBox->value());
+    };
+
+    connect(confirmButton, &QPushButton::clicked, &checkDialog, &QDialog::accept);
+
+    if (checkDialog.exec() == QDialog::Accepted) {
+        // qDebug() << "Bruting pass";
+        if (digitsCheck->isChecked())
+            mask |= (1 << 0);
+        if (latinUpperCheck->isChecked())
+            mask |= (1 << 1);
+        if (latinLowerCheck->isChecked())
+            mask |= (1 << 2);
+        if (cyrillicUpperCheck->isChecked())
+            mask |= (1 << 3);
+        if (cyrillicLowerCheck->isChecked())
+            mask |= (1 << 4);
+        if (specialCheck->isChecked())
+            mask |= (1 << 5);
+        startHackFunc();
     }
 }

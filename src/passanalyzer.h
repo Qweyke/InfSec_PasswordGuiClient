@@ -1,6 +1,7 @@
 #ifndef PASSANALYZER_H
 #define PASSANALYZER_H
 
+#include <QElapsedTimer>
 #include <Qstring>
 #include <Windows.h>
 #include <qdebug.h>
@@ -21,7 +22,7 @@ constexpr uint32_t ATTEMPTS_BEFORE_LOCK = 3;
 constexpr uint32_t SECS_FOR_UNLOCK = 1;
 
 // Max value 2^64
-constexpr uint64_t MAX_VALUE = (std::numeric_limits<uint64_t>::max)();
+constexpr uint64_t UINT64_MAX_VALUE = (std::numeric_limits<uint64_t>::max)();
 
 } // namespace
 
@@ -59,14 +60,14 @@ uint64_t doBinExp(uint64_t base, uint32_t power)
     {
         if (power % 2 == 1) // check last bit
         {
-            if (res >= MAX_VALUE / base)
+            if (res >= UINT64_MAX_VALUE / base)
 
                 throw std::overflow_error("Exponentiation \"result\" variable overflow");
 
             res *= base;
         }
 
-        if (base >= MAX_VALUE / base)
+        if (base >= UINT64_MAX_VALUE / base)
 
             throw std::overflow_error("Exponentiation \"base\" variable overflow");
 
@@ -90,26 +91,26 @@ void countHackTime(uint64_t cmbnQnty,
 
     uint64_t totalSecs = 0;
 
-    if (cmbnQnty > MAX_VALUE / secsForAttempt) {
-        qInfo()
-            << "Overflow in multiplying secs and combinations. Setting total secs to MAX_VALUE.";
-        totalSecs = MAX_VALUE;
+    if (cmbnQnty > UINT64_MAX_VALUE / secsForAttempt) {
+        qInfo() << "Overflow in multiplying secs and combinations. Setting total secs to "
+                   "UINT64_MAX_VALUE.";
+        totalSecs = UINT64_MAX_VALUE;
     } else {
         totalSecs = cmbnQnty * secsForAttempt;
     }
 
     uint64_t lockPenalty = 0;
-    if (cmbnQnty / attemptsBeforeLock > MAX_VALUE / lockTime) {
-        qInfo() << "Overflow in lock penalty. Setting lock penalty to MAX_VALUE.";
-        lockPenalty = MAX_VALUE;
+    if (cmbnQnty / attemptsBeforeLock > UINT64_MAX_VALUE / lockTime) {
+        qInfo() << "Overflow in lock penalty. Setting lock penalty to UINT64_MAX_VALUE.";
+        lockPenalty = UINT64_MAX_VALUE;
     } else {
         lockPenalty = (cmbnQnty / attemptsBeforeLock) * lockTime;
     }
 
-    if (totalSecs > MAX_VALUE - lockPenalty) {
+    if (totalSecs > UINT64_MAX_VALUE - lockPenalty) {
         qInfo() << "Overflow in suming lock penalty and secs for all attempts. Setting total "
-                   "secs to MAX_VALUE.";
-        totalSecs = MAX_VALUE;
+                   "secs to UINT64_MAX_VALUE.";
+        totalSecs = UINT64_MAX_VALUE;
     } else {
         totalSecs += lockPenalty;
     }
@@ -176,10 +177,67 @@ void checkPswdStrength(std::string pswd)
     } catch (std::overflow_error) {
         qInfo() << "Combinations quantity limit for C++ uint64_t exceeded, combinations quantity "
                    "set to 2^64 ";
-        cmbnQnty = MAX_VALUE;
+        cmbnQnty = UINT64_MAX_VALUE;
     }
 
     countHackTime(cmbnQnty, SECS_FOR_COMBINATION, ATTEMPTS_BEFORE_LOCK, SECS_FOR_UNLOCK);
+}
+
+void countHackTimePrecise(uint8_t alphabetBitMask, uint8_t passwordLength, double avgMsPerAttempt)
+{
+    const uint64_t MS_YEAR = 365ULL * 24 * 60 * 60 * 1000;
+    const uint64_t MS_DAY = 24ULL * 60 * 60 * 1000;
+    const uint64_t MS_HOUR = 60ULL * 60 * 1000;
+    const uint64_t MS_MINUTE = 60ULL * 1000;
+
+    uint32_t alphPower = countAlphabetPower(alphabetBitMask);
+
+    uint64_t cmbnQnty;
+    try {
+        cmbnQnty = doBinExp(alphPower, passwordLength);
+    } catch (std::overflow_error&) {
+        qInfo() << "Overflow. Combinations quantity set to 2^64";
+        cmbnQnty = UINT64_MAX_VALUE;
+    }
+
+    // Вычисляем общее время в миллисекундах как double, чтобы избежать потери точности
+    double totalMs = avgMsPerAttempt * static_cast<double>(cmbnQnty);
+
+    // Для вывода разбиваем время на компоненты, используя double для дробной точности
+    double yearsD = totalMs / static_cast<double>(MS_YEAR);
+    uint64_t years = static_cast<uint64_t>(yearsD);
+    totalMs -= years * MS_YEAR;
+
+    double daysD = totalMs / static_cast<double>(MS_DAY);
+    uint64_t days = static_cast<uint64_t>(daysD);
+    totalMs -= days * MS_DAY;
+
+    double hoursD = totalMs / static_cast<double>(MS_HOUR);
+    uint64_t hours = static_cast<uint64_t>(hoursD);
+    totalMs -= hours * MS_HOUR;
+
+    double minutesD = totalMs / static_cast<double>(MS_MINUTE);
+    uint64_t minutes = static_cast<uint64_t>(minutesD);
+    totalMs -= minutes * MS_MINUTE;
+
+    double secondsD = totalMs / 1000.0;
+    uint64_t seconds = static_cast<uint64_t>(secondsD);
+    totalMs -= seconds * 1000.0;
+
+    uint64_t milliseconds = static_cast<uint64_t>(totalMs);
+
+    double fractionalMs = avgMsPerAttempt * cmbnQnty
+                          - static_cast<uint64_t>(avgMsPerAttempt * cmbnQnty);
+
+    qInfo().noquote() << QString("Alphabet bitmask: 0x%1 | Power: %2 | Length: %3")
+                             .arg(alphabetBitMask, 0, 16)
+                             .arg(alphPower)
+                             .arg(passwordLength);
+    qInfo().noquote() << QString("Average time per attempt (ms): %1")
+                             .arg(avgMsPerAttempt, 0, 'f', 10);
+    qInfo() << "Total time: " << years << " year(s) - " << days << " day(s) - " << hours
+            << " hour(s) - " << minutes << " minute(s) - " << seconds << " second(s) - "
+            << milliseconds << " ms" << QString(" + %1 fractional ms").arg(fractionalMs, 0, 'f', 6);
 }
 
 // Overload for Qt impl
@@ -220,10 +278,82 @@ void checkPswdStrength(const QString& pswd)
         cmbnQnty = doBinExp(alphPower, static_cast<uint32_t>(pswd.length()));
     } catch (std::overflow_error&) {
         qInfo() << "Overflow. Combinations quantity set to 2^64";
-        cmbnQnty = MAX_VALUE;
+        cmbnQnty = UINT64_MAX_VALUE;
     }
 
     countHackTime(cmbnQnty, SECS_FOR_COMBINATION, ATTEMPTS_BEFORE_LOCK, SECS_FOR_UNLOCK);
+}
+
+QString buildAlphabet(uint8_t bitMask)
+{
+    QString alphabet;
+
+    if (bitMask & (1 << 0))
+        alphabet += "0123456789";
+    if (bitMask & (1 << 1))
+        alphabet += "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    if (bitMask & (1 << 2))
+        alphabet += "abcdefghijklmnopqrstuvwxyz";
+    if (bitMask & (1 << 3))
+        alphabet += "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ";
+    if (bitMask & (1 << 4))
+        alphabet += "абвгдеёжзийклмнопрстуфхцчшщъыьэюя";
+    if (bitMask & (1 << 5))
+        alphabet += "!@#$%^&*()-_=+[]{}|;:'\",.<>/?`~";
+
+    return alphabet;
+}
+
+void hackPass(std::function<void(QString)> logInFunc,
+              uint8_t alphabetBitMask,
+              bool* stopFlag,
+              uint8_t passLength)
+{
+    QString alpha = buildAlphabet(alphabetBitMask);
+    uint8_t symbolsInAlphabet = alpha.length();
+    uint64_t attempts = 0;
+    std::vector<uint8_t> passIndexesCombinations(passLength, 0);
+
+    // Func for alphabet combinations iteration
+    auto iterateVector = [passLength, symbolsInAlphabet, stopFlag, &passIndexesCombinations]() {
+        int64_t currPos = passLength - 1;
+        while (currPos >= 0 && !(*stopFlag)) {
+            if (passIndexesCombinations[currPos] + 1 < symbolsInAlphabet) {
+                passIndexesCombinations[currPos]++;
+                return true;
+            } else {
+                passIndexesCombinations[currPos] = 0;
+                currPos--;
+            }
+        }
+        return false;
+    };
+
+    QElapsedTimer timer;
+    timer.start();
+
+    while (true) {
+        attempts++;
+        QString passAttempt;
+        for (uint8_t i : passIndexesCombinations)
+            passAttempt.append(alpha[i]);
+
+        if (attempts % 10000 == 0)
+            qDebug() << "Hacking, attempt: " << attempts << "current password" << passAttempt;
+
+        logInFunc(passAttempt);
+
+        if (!iterateVector())
+            break;
+    }
+
+    qint64 elapsedMs = timer.elapsed();
+    double timePerAttempt = static_cast<double>(elapsedMs) / attempts;
+
+    qInfo() << "Total attempts:" << attempts;
+    qInfo() << "Total time (ms):" << elapsedMs;
+    qInfo() << "Average time per attempt (ms):" << timePerAttempt;
+    countHackTimePrecise(0x3F, passLength, timePerAttempt);
 }
 
 #endif // PASSANALYZER_H
