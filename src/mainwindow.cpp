@@ -42,6 +42,7 @@ void MainWindow::bindConnects()
         if (!ui->userNameLineEdit->text().isEmpty() && !ui->passLineEdit->text().isEmpty())
             loginProcessor.logIn(ui->userNameLineEdit->text(), ui->passLineEdit->text());
     });
+    ui->logInButton->setDefault(true);
 
     // Reg button
     connect(ui->regButton, &QPushButton::clicked, this, [this]() {

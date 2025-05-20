@@ -281,7 +281,7 @@ void LoginProcessor::logIn(const QString &login, const QString &pass)
             emit onLogIn(true, permission);
 
         } else {
-            qWarning() << "User" << login << "password is wrong";
+            qWarning() << "User" << login << "password" << pass << "is wrong";
             emit onLogIn(false, Permission::banned);
         }
 
